@@ -1,0 +1,26 @@
+#!/bin/sh
+# Toggle the HyperList display hook. Bound to /hl.
+#
+# State is the presence of the off-flag, not its contents: the hook checks it
+# on every invocation, so the disabled path stays one stat() with nothing to
+# read or parse. Living outside settings.json means the toggle takes effect on
+# the very next answer, with no session restart.
+#
+#   hyperlist-toggle          flip
+#   hyperlist-toggle on|off   set explicitly
+#   hyperlist-toggle status   report without changing
+FLAG="$HOME/.claude/hyperlist-display.off"
+
+case "${1:-toggle}" in
+    on)     rm -f "$FLAG" ;;
+    off)    : > "$FLAG" ;;
+    status) ;;
+    toggle) if [ -e "$FLAG" ]; then rm -f "$FLAG"; else : > "$FLAG"; fi ;;
+    *)      echo "usage: hyperlist-toggle [on|off|toggle|status]" >&2; exit 2 ;;
+esac
+
+if [ -e "$FLAG" ]; then
+    echo "HyperList display: OFF (normal markdown)"
+else
+    echo "HyperList display: ON"
+fi
