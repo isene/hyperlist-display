@@ -12,9 +12,18 @@ make
 ```
 
 `~/.claude/hooks/hyperlist-display-asm` is a symlink to the binary this
-builds, and `settings.json` runs that path. So `make` is the whole
-deploy. A fix is not live until that symlink points at the repo build;
-never copy the binary somewhere else.
+builds. So `make` is the whole deploy. A fix is not live until that
+symlink points at the repo build; never copy the binary somewhere else.
+
+Since 2026-09-05 `settings.json` does not run that path directly. The
+`MessageDisplay` entry is `~/.claude/hooks/style-gate`, a small Python
+hook owned by the #system session. It buffers the whole answer, runs
+`stylecheck` on it, and only then calls this binary once with the
+complete message as a single delta (index 0, final true). To bypass the
+gate, point `MessageDisplay` back at `hyperlist-display-asm`.
+
+Nothing under `~/.claude` is in git. The symlinks point into this repo;
+the repo never points back.
 
 The three helpers are symlinked the same way:
 
@@ -35,6 +44,10 @@ what was meant. Change it too when the mapping changes on purpose.
   arrives **per streamed chunk**. The hook may run many times for one
   answer. That is why this is assembly: the Python version cost 52 ms
   per run, nearly all interpreter startup.
+- Behind style-gate the live path sends one delta per answer, so the
+  cross-delta code (held tail, carried table header, reset on index 0)
+  is not exercised there. Keep it: `/hl off` and any direct wiring
+  still stream.
 - The `settings.json` entry needs the nested `{"hooks": [ ... ]}` block
   inside the `MessageDisplay` array, not a bare command object.
 - Output is `displayContent`, which reaches the terminal as plain text,
