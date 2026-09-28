@@ -2230,15 +2230,21 @@ inline_tr_seg:
 .p2_got:
     cmp rbx, r14
     jbe .p2_copy                    ; empty ****
-    mov byte [rdi], B_ON
-    inc rdi
     lea rsi, [r12 + r14 + 2]
     mov rdx, rbx
     sub rdx, r14
     sub rdx, 2
+    call has_url
+    jnz .p2_plain
+    mov byte [rdi], B_ON
+    inc rdi
     call copy_n
     mov byte [rdi], B_OFF
     inc rdi
+    lea r14, [rbx + 2]
+    jmp .p2
+.p2_plain:                          ; a URL inside stays unstyled
+    call copy_n
     lea r14, [rbx + 2]
     jmp .p2
 .p2_copy:
@@ -2316,15 +2322,21 @@ inline_tr_seg:
     jz  .p3_fnext
     jmp .p3_copy_star               ; ran into a bold span
 .p3_got:
-    mov byte [rdi], I_ON
-    inc rdi
     lea rsi, [r12 + r14 + 1]
     mov rdx, rbx
     sub rdx, r14
     dec rdx
+    call has_url
+    jnz .p3_plain
+    mov byte [rdi], I_ON
+    inc rdi
     call copy_n
     mov byte [rdi], I_OFF
     inc rdi
+    lea r14, [rbx + 1]
+    jmp .p3
+.p3_plain:                          ; a URL inside stays unstyled
+    call copy_n
     lea r14, [rbx + 1]
     jmp .p3
 .p3_copy_star:
@@ -2556,6 +2568,32 @@ apply_cond:
     ret
 
 ; rdi = dst, rsi = src, rdx = len. Advances rdi. Preserves rax.
+; has_url — rsi = text, rdx = length. ZF clear when it holds "://".
+; Claude Code turns a URL into a link and takes a style code glued to its
+; end into the link, so "**https://x/**" showed as "...x/[22m". Bold and
+; italic spans with a URL are left unstyled. Keeps rsi and rdx.
+has_url:
+    push rcx
+    xor eax, eax
+    xor ecx, ecx
+.hu_loop:
+    lea r8, [rcx + 3]
+    cmp r8, rdx
+    ja  .hu_ret
+    cmp byte [rsi + rcx], ':'
+    jne .hu_next
+    cmp word [rsi + rcx + 1], '//'
+    je  .hu_yes
+.hu_next:
+    inc rcx
+    jmp .hu_loop
+.hu_yes:
+    inc eax
+.hu_ret:
+    pop rcx
+    test eax, eax
+    ret
+
 copy_n:
     push rax
     test rdx, rdx
