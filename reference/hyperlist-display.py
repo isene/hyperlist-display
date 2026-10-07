@@ -590,9 +590,14 @@ def convert(md, base=0, shift=None, in_fence=0, fence_indent=0,
         else:
             ind = indent + state["kid"]
             if shiftable and state["enum1"]:
-                if state["eshift"] == 0 and ind < state["enum1"]:
-                    state["eshift"] = state["enum1"] - ind
-                ind += state["eshift"]
+                if ind + 1 < state["enum1"]:
+                    # Shallower than the numbered item: outside its list,
+                    # so the block it parents is over.
+                    state["enum1"] = state["eshift"] = 0
+                else:
+                    if state["eshift"] == 0 and ind < state["enum1"]:
+                        state["eshift"] = state["enum1"] - ind
+                    ind += state["eshift"]
         out.append((ind, text, literal))
         if not literal:
             state["last"] = ind + 1        # encoded +1; 0 = nothing yet
@@ -600,18 +605,28 @@ def convert(md, base=0, shift=None, in_fence=0, fence_indent=0,
         state["colon"] = (not literal and not state["quote"]
                           and visible(text).endswith(":"))
 
-    def attach_list():
+    def attach_list(depth):
         """A list that follows a prose line with no blank line between is
         that line's content: "Two paths:" or "Recommendation: X." and then
         the bullets. Markdown leaves them at the same level; HyperList puts
         the list one level under the line that introduced it. A blank line
         breaks the attachment (end_block then decides on the colon alone),
-        which stops one intro from swallowing every list after it."""
-        attached = bool(para)
+        which stops one intro from swallowing every list after it.
+
+        Two cases are not an attachment, and without them the items of
+        one list drift apart. An item shallower than the prose line: that
+        line is a continuation under an earlier item, and this item is
+        that item's sibling. And a numbered item in force: the extra level
+        then goes into its shift, which ends at the next numbered item,
+        so 1, 2 and 3 stay level."""
+        attached = bool(para) and depth >= para_ind
         flush_para()
         if attached:
-            state["kid"] += 1
             state["colon"] = False
+            if state["enum1"]:
+                state["eshift"] += 1
+            else:
+                state["kid"] += 1
 
     def end_block():
         """A pure Property, "What went:", is a parent in HyperList: it names
@@ -737,23 +752,23 @@ def convert(md, base=0, shift=None, in_fence=0, fence_indent=0,
         # --- bullets and numbered items keep their own nesting depth
         m = RE_BULL.match(line)
         if m:
-            attach_list()
             # Markdown nests lists with either 2 or 4 spaces per level.
             # Treat a multiple of 4 as 4-space style so both conventions
             # yield one HyperList level per nesting level.
             lead = len(m.group(1).expandtabs(4))
             depth = lead // 4 if lead and lead % 4 == 0 else lead // 2
+            attach_list(depth)
             emit(state["base"] + depth, colorize(conditional(inline(m.group(2)))),
                  shiftable=True)
             continue
         m = RE_NUMB.match(line)
         if m:
-            attach_list()
             # Markdown nests lists with either 2 or 4 spaces per level.
             # Treat a multiple of 4 as 4-space style so both conventions
             # yield one HyperList level per nesting level.
             lead = len(m.group(1).expandtabs(4))
             depth = lead // 4 if lead and lead % 4 == 0 else lead // 2
+            attach_list(depth)
             # A bold wrapper reopens on the rest of the Item.
             rest = ("**" + m.group(4)) if m.group(2) else m.group(4)
             # HyperList numbered items take a period, never a colon

@@ -7,7 +7,10 @@ hyperlist-display: hyperlist-display.asm
 	nasm -f elf64 $< -o hyperlist-display.o
 	ld hyperlist-display.o -o $@
 
+test: hyperlist-display
+	python3 test.py
+
 clean:
 	rm -f hyperlist-display.o hyperlist-display
 
-.PHONY: all clean
+.PHONY: all test clean

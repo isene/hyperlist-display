@@ -3048,6 +3048,9 @@ handle_line:
     cmp byte [r12 + rdx], ' '
     jne .not_bullet
     mov r14, rcx                    ; leading whitespace count
+    mov rsi, r12
+    call lead_cols
+    call nesting_depth              ; r8 = this item's depth, for attach_list
     call attach_list
     lea rcx, [r14 + 2]              ; past marker and space
     lea rsi, [r12 + rcx]
@@ -3128,6 +3131,10 @@ handle_line:
     cmp byte [r12 + rdx], ' '
     jne .not_num
     push rcx                        ; flush_para scribbles over rcx
+    mov rsi, r12
+    mov rcx, r14
+    call lead_cols
+    call nesting_depth              ; r8 = this item's depth, for attach_list
     call attach_list
     pop rcx
     ; digits, then ". ", then the inline-transformed rest
@@ -3296,11 +3303,21 @@ handle_line:
 ; follows it: content no deeper than the enumerator engages a lift to one
 ; level under it, and the lift holds until a blank line, a heading or the
 ; next enumerator. Content already deeper carries its own structure.
+; Content shallower than the numbered item is outside its list: the block
+; the item parents is over, and the content keeps its own level.
 apply_eshift:
     push rax
     mov rax, [enum_ind1]
     test rax, rax
     jz  .ret
+    dec rax                         ; the numbered item's own level
+    cmp r8, rax
+    jae .inside
+    mov qword [enum_ind1], 0
+    mov qword [enum_shift], 0
+    jmp .ret
+.inside:
+    inc rax
     cmp qword [enum_shift], 0
     jne .add
     cmp r8, rax
@@ -3906,14 +3923,32 @@ end_block:
 ; (end_block then decides on the colon alone), so one intro never
 ; swallows every list after it. Called by the bullet and numbered
 ; branches in place of flush_para. Preserves what flush_para preserves.
+;
+; r8 = the list item's own depth. Two cases are not an attachment, and
+; without them the items of one list drift apart:
+; - The item is shallower than the prose line. That line is a continuation
+;   under an earlier item, and this item is that item's sibling.
+; - A numbered item is in force. The extra level then goes into its lift,
+;   which ends at the next numbered item, so 1, 2 and 3 stay level.
 attach_list:
     push rbx
     mov rbx, [para_len]             ; was a paragraph pending?
+    test rbx, rbx
+    jz  .al_flush
+    cmp r8, [para_lvl]
+    jae .al_flush
+    xor ebx, ebx                    ; shallower: a sibling, not content
+.al_flush:
     call flush_para
     test rbx, rbx
     jz  .al_done
-    inc qword [kid_ind]
     mov qword [para_colon], 0
+    cmp qword [enum_ind1], 0
+    je  .al_kid
+    inc qword [enum_shift]
+    jmp .al_done
+.al_kid:
+    inc qword [kid_ind]
 .al_done:
     pop rbx
     ret

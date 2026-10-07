@@ -63,6 +63,13 @@ what was meant. Change it too when the mapping changes on purpose.
 - **Attach-list rule (2026-09-02):** a list right after a prose line
   with no blank line between nests under that line, incrementing the
   child counter, rather than starting a sibling.
+- **Sibling rule (2026-10-07):** the items of one list stay on one
+  level. A list item shallower than the prose line above it does not
+  attach to that line; the line was a continuation under an earlier
+  item. Inside a numbered item an attachment raises that item's lift,
+  which ends at the next number, and not the child counter, which
+  never comes down inside a block. Content shallower than a numbered
+  item ends its block. `make test` has the cases.
 - **Tab expansion in `lead_cols`:** leading tabs count as indentation
   for bullet and numbered depth, so a tab-indented list from Claude
   nests the way a space-indented one does.
