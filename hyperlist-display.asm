@@ -86,6 +86,7 @@ code_len      equ $ - code_str
 hl_tag:       db 'hyperlist'
 hl_tag_len    equ $ - hl_tag
 colon_sp:     db ': '
+dot_sp:       db '. '
 cond_open:    db '[? '
 cond_close:   db '] '
 then_str:     db 'then '
@@ -3598,16 +3599,19 @@ next_cell:
     ret
 
 ; Emit a table data row: first cell becomes the item, the rest become
-; "Header: value" Properties one level deeper.
+; "Header: value" Properties one level deeper. A row that opens with a bare
+; number is a numbered item: the number and its first property share the
+; line, "4. Question: ...", and the rest hang under it.
 emit_table_row:
     push rbx
     push r12
     push r13
     push r14
     push r15
-    sub rsp, 16
+    sub rsp, 32
     mov qword [rsp], 0              ; row cursor
     mov qword [rsp + 8], 0          ; header cursor
+    mov qword [rsp + 24], 0         ; length of a row number that waits
 
     ; row inner content: skip the leading and trailing '|'
     lea r14, [r12 + 1]
@@ -3621,20 +3625,29 @@ emit_table_row:
     call next_cell
     test rax, rax
     jz  .done
+    ; digits only: the number waits for the first property to join it
+    mov [rsp + 16], rax
+    test rcx, rcx
+    jz  .item
+    xor edx, edx
+.digits:
+    push rax
+    mov al, [rax + rdx]
+    call is_digit_al
+    test eax, eax
+    pop rax
+    jz  .item
+    inc rdx
+    cmp rdx, rcx
+    jb  .digits
+    mov [rsp + 24], rcx
+    jmp .hdr
+.item:
     mov rsi, rax
     mov rdx, rcx
-    lea rdi, [line_buf]
-    call inline_tr
-    mov rdx, rax
-    mov r8, [base_ind]
-    add r8, [kid_ind]
-    call apply_eshift
-    lea rsi, [line_buf]
-    call note_item
-    call emit_line
-    lea rax, [r8 + 1]
-    mov [last_ind1], rax
+    call .emit_item
 
+.hdr:
     ; header's first cell is consumed to stay in step
     lea rdi, [rsp + 8]
     lea rsi, [hdr_buf]
@@ -3676,6 +3689,22 @@ emit_table_row:
     xor ebx, ebx
 .build:
     lea rdi, [line_buf]
+    mov r8, [base_ind]
+    add r8, [kid_ind]
+    mov rdx, [rsp + 24]
+    test rdx, rdx
+    jz  .deeper
+    ; the waiting number opens this line, which is the item itself
+    mov rsi, [rsp + 16]
+    call copy_n
+    lea rsi, [dot_sp]
+    mov rdx, 2
+    call copy_n
+    mov qword [rsp + 24], 0
+    jmp .prop
+.deeper:
+    inc r8
+.prop:
     lea rsi, [line2_buf]
     mov rdx, rbx
     call copy_n
@@ -3688,9 +3717,6 @@ emit_table_row:
     lea rax, [line_buf]
     mov rdx, rdi
     sub rdx, rax
-    mov r8, [base_ind]
-    inc r8
-    add r8, [kid_ind]
     call apply_eshift
     lea rsi, [line_buf]
     call note_item
@@ -3699,12 +3725,34 @@ emit_table_row:
     mov [last_ind1], rax
     jmp .pair
 .done:
-    add rsp, 16
+    ; a number no property joined stands alone, as any first cell does
+    mov rdx, [rsp + 24]
+    test rdx, rdx
+    jz  .out
+    mov rsi, [rsp + 16]
+    call .emit_item
+.out:
+    add rsp, 32
     pop r15
     pop r14
     pop r13
     pop r12
     pop rbx
+    ret
+
+; rsi/rdx = the row's first cell: emit it as the item line.
+.emit_item:
+    lea rdi, [line_buf]
+    call inline_tr
+    mov rdx, rax
+    mov r8, [base_ind]
+    add r8, [kid_ind]
+    call apply_eshift
+    lea rsi, [line_buf]
+    call note_item
+    call emit_line
+    lea rax, [r8 + 1]
+    mov [last_ind1], rax
     ret
 
 ; ---------------------------------------------------------------------------
@@ -4332,7 +4380,12 @@ colorize_buf:
     call cb_put
     mov r14, rcx
     call copy_head
-    jmp .head_done
+    ; A Property may follow the Identifier, "4. Question: ...": the scan
+    ; below goes on as if the Item began after its number.
+    add r12, r14
+    sub r13, r14
+    xor r14, r14
+    jmp .id_fail
 .id_starter:
     mov al, C_MAG
     call cb_put

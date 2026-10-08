@@ -295,23 +295,24 @@ def colorize(s):
             # passing", and reading it as a numbering is wrong. Give it the
             # neutral Starter instead, which is what 2.8 added it for: the
             # Item no longer begins with a number, and the digits stay plain.
-            if "." in s[:i]:
-                head, s = C_MAG + s[:i] + C_OFF, s[i:]
-            else:
-                head = C_MAG + "- " + C_OFF
-        else:
-            # --- Property: HLtag, two or more of its class then ": "
-            i = seen = 0
-            while i < n:
-                if s[i] in SENTINELS:
-                    i += 1
-                    continue
-                if not (letter(s[i]) or "0" <= s[i] <= "9" or s[i] in PROP_CH):
-                    break
-                seen += 1
+            if "." not in s[:i]:
+                return C_MAG + "- " + C_OFF + colorize_tail(s)
+            # A Property may follow the Identifier, "4. Question: ...": the
+            # scan below goes on as if the Item began after its number.
+            head, s = C_MAG + s[:i] + C_OFF, s[i:]
+            n = len(s)
+        # --- Property: HLtag, two or more of its class then ": "
+        i = seen = 0
+        while i < n:
+            if s[i] in SENTINELS:
                 i += 1
-            if seen >= 2 and i < n and s[i] == ":" and after_colon(s, i, n):
-                head, s = C_RED + s[:i + 1] + C_OFF, s[i + 1:]
+                continue
+            if not (letter(s[i]) or "0" <= s[i] <= "9" or s[i] in PROP_CH):
+                break
+            seen += 1
+            i += 1
+        if seen >= 2 and i < n and s[i] == ":" and after_colon(s, i, n):
+            head, s = head + C_RED + s[:i + 1] + C_OFF, s[i + 1:]
 
     return head + colorize_tail(s)
 
@@ -740,12 +741,20 @@ def convert(md, base=0, shift=None, in_fence=0, fence_indent=0,
                 continue
             if not cells:
                 continue
-            emit(state["base"], colorize(inline(cells[0])), shiftable=True)
             hdr_cells = [c.strip() for c in table_hdr.split("|")]
-            for h, c in zip(hdr_cells[1:], cells[1:]):
-                if c:
-                    emit(state["base"] + 1, colorize(f"{inline(h)}: {inline(c)}"),
-                         shiftable=True)
+            props = [(h, c) for h, c in zip(hdr_cells[1:], cells[1:]) if c]
+            if props and cells[0].isascii() and cells[0].isdigit():
+                # A row that opens with a bare number is a numbered item:
+                # the number and its first property share the line,
+                # "4. Question: ...", and the rest hang under it.
+                h, c = props.pop(0)
+                item = f"{cells[0]}. {inline(h)}: {inline(c)}"
+            else:
+                item = inline(cells[0])
+            emit(state["base"], colorize(item), shiftable=True)
+            for h, c in props:
+                emit(state["base"] + 1, colorize(f"{inline(h)}: {inline(c)}"),
+                     shiftable=True)
             continue
         table_hdr = None
 

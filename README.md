@@ -2,7 +2,7 @@
 
 <img src="img/hyperlist-display.svg" align="left" width="150" height="150">
 
-![Version](https://img.shields.io/badge/version-0.1.3-blue) ![Assembly](https://img.shields.io/badge/language-x86__64%20Assembly-purple) ![License](https://img.shields.io/badge/license-Unlicense-green) ![Platform](https://img.shields.io/badge/platform-Linux%20x86__64-blue) ![Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen) ![Binary](https://img.shields.io/badge/binary-~50KB-orange) ![Hook](https://img.shields.io/badge/Claude%20Code-MessageDisplay%20hook-ff6600) ![Stay Amazing](https://img.shields.io/badge/Stay-Amazing-important)
+![Version](https://img.shields.io/badge/version-0.1.4-blue) ![Assembly](https://img.shields.io/badge/language-x86__64%20Assembly-purple) ![License](https://img.shields.io/badge/license-Unlicense-green) ![Platform](https://img.shields.io/badge/platform-Linux%20x86__64-blue) ![Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen) ![Binary](https://img.shields.io/badge/binary-~50KB-orange) ![Hook](https://img.shields.io/badge/Claude%20Code-MessageDisplay%20hook-ff6600) ![Stay Amazing](https://img.shields.io/badge/Stay-Amazing-important)
 
 A Claude Code display hook that renders every answer as a
 [HyperList](https://isene.org/hyperlist/): a tab-indented hierarchy,

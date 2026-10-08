@@ -70,6 +70,13 @@ what was meant. Change it too when the mapping changes on purpose.
   which ends at the next number, and not the child counter, which
   never comes down inside a block. Content shallower than a numbered
   item ends its block. `make test` has the cases.
+- **Numbered row rule (2026-10-08):** a table row that opens with a
+  bare number is a numbered item. The number and the first property
+  that has a value share one line, "4. Question: ...", and the other
+  properties hang under it. Any other first cell keeps its own line.
+- **Property after a number (2026-10-08):** a Property is painted at
+  the start of an Item and also right after its Identifier. That keeps
+  "Question:" red in a numbered row, and "1. Note: ..." in a list too.
 - **Tab expansion in `lead_cols`:** leading tabs count as indentation
   for bullet and numbered depth, so a tab-indented list from Claude
   nests the way a space-indented one does.

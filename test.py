@@ -2,7 +2,8 @@
 """Items of one list come out on one level. Run with: make test
 
 Each case is markdown and the level every output line must have. The
-binary and the Python reference must both give it.
+binary and the Python reference must both give it. A TEXT case names the
+lines themselves, colour codes left out.
 """
 import json
 import re
@@ -37,15 +38,31 @@ CASES = [
     ("a list still nests under the line that introduces it",
      "Steps:\n1. one\n2. two\n",
      [0, 1, 1]),
+    ("a numbered table row shares its line with the first property",
+     "| # | Question | Rec |\n|--|--|--|\n| 4 | Cut? | Yes |\n| 5 | Go? | No |\n",
+     [0, 1, 0, 1]),
+]
+
+TEXT = [
+    ("a numbered table row",
+     "| # | Question | Rec |\n|--|--|--|\n| 4 | Cut? | Yes |\n| 12 | | Wait |\n| 13 | | |\n",
+     ["4. Question: Cut?", "    Rec: Yes", "12. Rec: Wait", "13"]),
+    ("a row that opens with a name keeps its own line",
+     "| File | Size |\n|--|--|\n| a.rs | 12 |\n",
+     ["a.rs", "    Size: 12"]),
 ]
 
 
-def levels(cmd, md):
+def lines(cmd, md):
     payload = json.dumps({"delta": md, "index": 0, "final": True})
     out = subprocess.run(cmd, input=payload, capture_output=True, text=True).stdout
     text = json.loads(out)["hookSpecificOutput"]["displayContent"]
     text = re.sub(r"\x1b\[[0-9;]*m", "", text)
-    return [(len(l) - len(l.lstrip(" "))) // 4 for l in text.split("\n") if l.strip()]
+    return [l for l in text.split("\n") if l.strip()]
+
+
+def levels(cmd, md):
+    return [(len(l) - len(l.lstrip(" "))) // 4 for l in lines(cmd, md)]
 
 
 failed = 0
@@ -55,5 +72,11 @@ for name, md, want in CASES:
         if got != want:
             failed += 1
             print("FAIL {} ({}): want {} got {}".format(name, engine, want, got))
-print("{} cases, {} engines, {} failed".format(len(CASES), len(ENGINES), failed))
+for name, md, want in TEXT:
+    for engine, cmd in ENGINES.items():
+        got = lines(cmd, md)
+        if got != want:
+            failed += 1
+            print("FAIL {} ({}): want {} got {}".format(name, engine, want, got))
+print("{} cases, {} engines, {} failed".format(len(CASES) + len(TEXT), len(ENGINES), failed))
 sys.exit(1 if failed else 0)
