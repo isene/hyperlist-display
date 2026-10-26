@@ -473,14 +473,15 @@ def codewrap(txt):
 
 
 def render(items, prev1=0, dshift=0, dorigin=0):
-    """Lay the Items out, wrapping where needed (HyperList 2.8).
+    """Lay the Items out, wrapping where needed.
 
     An Item that spans more than one line takes a neutral Starter, "+ ", and
-    its continuation lines sit two spaces beyond the Item's own indent. No
-    other Item is affected, so each line can be laid out on its own.
-    Literal lines (fenced code) are exempt: wrapping them would corrupt them.
+    its continuation lines sit two spaces beyond the Item's own indent. The
+    Starter belongs to a sibling group: when one Item breaks, every Item at
+    its level under the same parent takes one too. Literal lines (fenced
+    code) are exempt: wrapping them would corrupt them.
     """
-    out = []
+    lifted = []
     for ind, txt, lit in items:
         # HyperList indents one level at a time: a child sits exactly one
         # level under its parent. A jump of two has no parent to belong
@@ -494,25 +495,45 @@ def render(items, prev1=0, dshift=0, dorigin=0):
             dshift, dorigin = ind - prev1, ind
         ind -= dshift
         prev1 = ind + 1
+        lifted.append((ind, txt, lit))
+
+    def breaks(ind, txt):
+        return dwidth(txt) + 2 > max(WIDTH - ind * TABW, 20)
+
+    # Sibling groups: a run of Items at one indent under the same parent.
+    # Coming back to an indent after a shallower Item starts a new group.
+    groups, stack, marked = [], [], set()
+    for ind, txt, lit in lifted:
+        while stack and stack[-1][0] > ind:
+            stack.pop()
+        if not stack or stack[-1][0] != ind:
+            stack.append((ind, len(groups)))
+        g = stack[-1][1]
+        groups.append(g)
+        if not lit and breaks(ind, txt):
+            marked.add(g)
+
+    out = []
+    for (ind, txt, lit), g in zip(lifted, groups):
         tabs = TAB * ind
         if lit:
             out.append(tabs + codewrap(txt))
             continue
         avail = max(WIDTH - ind * TABW, 20)
-        wraps = dwidth(txt) + 2 > avail
+        starter = g in marked
         # One Starter per Item. When an Item that already carries the
-        # neutral "- " wraps, that marker becomes the multi-line "+" rather
-        # than the Item taking a second one.
+        # neutral "- " takes one, that marker becomes the multi-line "+"
+        # rather than the Item taking a second one.
         neutral = C_MAG + "- " + C_OFF
         # An Item that opens with an Identifier already carries its
         # line-leading marker, so it takes no Starter: vim's HLident cannot
         # match behind one either. The continuation indent still shows the
         # Item spans lines.
         ident = txt[:2].startswith(C_MAG) and len(txt) > 1 and "0" <= txt[1] <= "9"
-        if wraps and txt.startswith(neutral):
+        if starter and txt.startswith(neutral):
             body = C_MAG + "+ " + C_OFF + txt[len(neutral):]
         else:
-            body = (C_MAG + "+ " + C_OFF if wraps and not ident else "") + txt
+            body = (C_MAG + "+ " + C_OFF if starter and not ident else "") + txt
         parts = wrap_body(body, avail, avail - 2)
         out.append(tabs + expand_ansi(parts[0]))
         # Continuation lines sit two spaces beyond the Item's own indent.

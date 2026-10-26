@@ -1563,7 +1563,8 @@ compute_groups:
     ret
 
 ; If any Item in a group would run past the width, the whole group takes a
-; Starter. Literal lines never count and are never wrapped.
+; Starter. Literal lines never count and are never wrapped. The test is the
+; one render_items makes, so a group is marked exactly when an Item breaks.
 mark_wraps:
     push rbx
     xor rbx, rbx
@@ -1574,15 +1575,20 @@ mark_wraps:
     jne .next
     mov rax, [items_ind + rbx*8]
     imul rax, rax, IND_W
-    push rax
+    mov rcx, [hl_width]
+    sub rcx, rax
+    cmp rcx, 20
+    jge .aok
+    mov ecx, 20
+.aok:
+    push rcx
     mov rax, [items_off + rbx*8]
     lea rdi, [items_buf + rax]
     mov rsi, [items_len + rbx*8]
     call display_width              ; style sentinels take no columns
     pop rcx
-    add rax, rcx
     add rax, 2                      ; the "+ " a wrap would add
-    cmp rax, [hl_width]
+    cmp rax, rcx
     jbe .next
     mov rcx, [items_gid + rbx*8]
     mov byte [grp_wrapped + rcx], 1
@@ -1696,21 +1702,21 @@ emit_chunk:
     pop r12
     ret
 
-; Lay every Item out, wrapping where the multi-line rule requires it.
-render_items:
+; HyperList indents one level at a time: a child sits exactly one level
+; under its parent. A jump of two has no parent to belong to, so lift the
+; whole block by the same amount rather than clamping line by line, or
+; siblings would drift apart. The lift holds until a line comes back
+; shallower than the one that opened it. Each Item's indent is rewritten
+; in place, so the groups, the wrap test and the layout all see the level
+; the Item is drawn at.
+lift_items:
     push rbx
     push r12
-    push r13
     xor rbx, rbx
 .item:
     cmp rbx, [item_count]
     jae .done
     mov r12, [items_ind + rbx*8]
-    ; HyperList indents one level at a time: a child sits exactly one
-    ; level under its parent. A jump of two has no parent to belong to,
-    ; so lift the whole block by the same amount rather than clamping
-    ; line by line, or siblings would drift apart. The lift holds until
-    ; a line comes back shallower than the one that opened it.
     cmp qword [dep_shift], 0
     je  .li_set
     cmp r12, [dep_origin]
@@ -1729,6 +1735,24 @@ render_items:
     sub r12, [dep_shift]
     lea rax, [r12 + 1]
     mov [prev_ind1], rax
+    mov [items_ind + rbx*8], r12
+    inc rbx
+    jmp .item
+.done:
+    pop r12
+    pop rbx
+    ret
+
+; Lay every Item out, wrapping where the multi-line rule requires it.
+render_items:
+    push rbx
+    push r12
+    push r13
+    xor rbx, rbx
+.item:
+    cmp rbx, [item_count]
+    jae .done
+    mov r12, [items_ind + rbx*8]
     cmp byte [items_lit + rbx], 0
     je  .normal
     mov rax, [items_off + rbx*8]
@@ -1788,8 +1812,8 @@ render_items:
     call out_line                   ; literal: verbatim, no Starter, no wrap
     jmp .next
 .normal:
-    ; HyperList 2.8: the Starter belongs to the Item that actually breaks,
-    ; and to no other. Nothing about its siblings matters.
+    ; The Starter belongs to a sibling group: when one Item in it breaks,
+    ; every Item in it takes one (mark_wraps found which groups).
     mov rax, [items_ind + rbx*8]
     imul rax, rax, IND_W
     mov rcx, [hl_width]
@@ -1806,7 +1830,11 @@ render_items:
     add rax, 2                      ; the "+ " a break would add
     lea rdi, [wrap_buf]
     cmp rax, [wrap_avail]
-    jbe .no_plus
+    ja  .starter
+    mov rcx, [items_gid + rbx*8]
+    cmp byte [grp_wrapped + rcx], 0
+    je  .no_plus
+.starter:
     ; One Starter per Item. An Item that already carries the neutral "- "
     ; turns that marker into the multi-line "+" rather than taking a second.
     mov rax, [items_off + rbx*8]
@@ -2692,6 +2720,9 @@ convert:
     jmp .next_line
 .finish:
     call flush_para
+    call lift_items
+    call compute_groups
+    call mark_wraps
     call render_items
     call save_state
     pop r15

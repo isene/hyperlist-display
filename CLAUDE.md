@@ -74,6 +74,12 @@ what was meant. Change it too when the mapping changes on purpose.
   bare number is a numbered item. The number and the first property
   that has a value share one line, "4. Question: ...", and the other
   properties hang under it. Any other first cell keeps its own line.
+- **Group Starter rule (2026-10-26):** when one Item breaks onto a
+  second line, every Item of its sibling group takes a "+", as the
+  user wants (HyperList 2.8 dropped this, because it often came out
+  wrong). It works now that the whole answer arrives as one delta.
+  Groups are found after the level lift, with the same width test the
+  layout uses; before, they were found on the unlifted indent.
 - **Property after a number (2026-10-08):** a Property is painted at
   the start of an Item and also right after its Identifier. That keeps
   "Question:" red in a numbered row, and "1. Note: ..." in a list too.

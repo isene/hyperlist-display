@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Items of one list come out on one level. Run with: make test
+"""Items of one list come out on one level, and when one Item breaks,
+every Item of its group takes a "+". Run with: make test
 
 Each case is markdown and the level every output line must have. The
 binary and the Python reference must both give it. A TEXT case names the
@@ -52,6 +53,17 @@ TEXT = [
      ["a.rs", "    Size: 12"]),
 ]
 
+LONG = "word " * 40
+# Which output lines open with "+ ", for markdown with one Item past the width.
+PLUS = [
+    ("a short sibling of a broken Item takes a Starter too",
+     "- " + LONG + "\n- short\n  - child\n- also short\n",
+     ["+ word", "  word", "+ short", "child", "+ also short"]),
+    ("a group with no broken Item takes none",
+     "- a\n- b\n  - " + LONG + "\n  - c\n- d\n",
+     ["a", "b", "+ word", "  word", "+ c", "d"]),
+]
+
 
 def lines(cmd, md):
     payload = json.dumps({"delta": md, "index": 0, "final": True})
@@ -78,5 +90,11 @@ for name, md, want in TEXT:
         if got != want:
             failed += 1
             print("FAIL {} ({}): want {} got {}".format(name, engine, want, got))
-print("{} cases, {} engines, {} failed".format(len(CASES) + len(TEXT), len(ENGINES), failed))
+for name, md, want in PLUS:
+    for engine, cmd in ENGINES.items():
+        got = [re.sub(r"^(    )*", "", l)[:len(w)] for l, w in zip(lines(cmd, md), want)]
+        if got != want:
+            failed += 1
+            print("FAIL {} ({}): want {} got {}".format(name, engine, want, got))
+print("{} cases, {} engines, {} failed".format(len(CASES) + len(TEXT) + len(PLUS), len(ENGINES), failed))
 sys.exit(1 if failed else 0)
