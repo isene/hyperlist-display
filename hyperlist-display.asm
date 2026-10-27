@@ -4467,10 +4467,14 @@ colorize_buf:
     call after_colon
     test eax, eax
     jz  .head_done
-    mov al, C_RED
+    mov al, C_RED                   ; a Property is bold red, whether or
+    call cb_put                     ; not the markdown made it bold
+    mov al, B_ON
     call cb_put
     lea r14, [rcx + 1]
     call copy_head
+    mov al, B_OFF
+    call cb_put
 
 .head_done:
     xor rbx, rbx                    ; rbx = 1 inside a code span

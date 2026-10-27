@@ -312,7 +312,8 @@ def colorize(s):
             seen += 1
             i += 1
         if seen >= 2 and i < n and s[i] == ":" and after_colon(s, i, n):
-            head, s = head + C_RED + s[:i + 1] + C_OFF, s[i + 1:]
+            # Bold red, whether or not the markdown made it bold.
+            head, s = head + C_RED + B_ON + s[:i + 1] + C_OFF + B_OFF, s[i + 1:]
 
     return head + colorize_tail(s)
 

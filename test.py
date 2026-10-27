@@ -73,6 +73,16 @@ def lines(cmd, md):
     return [l for l in text.split("\n") if l.strip()]
 
 
+def raw(cmd, md):
+    payload = json.dumps({"delta": md, "index": 0, "final": True})
+    out = subprocess.run(cmd, input=payload, capture_output=True, text=True).stdout
+    return json.loads(out)["hookSpecificOutput"]["displayContent"]
+
+
+# A Property is bold red, whether or not the markdown made it bold.
+BOLD = ["- Pushed: a\n- Tested: b\n", "- **Pushed:** a\n- Tested: b\n", "8. Your move: c\n"]
+
+
 def levels(cmd, md):
     return [(len(l) - len(l.lstrip(" "))) // 4 for l in lines(cmd, md)]
 
@@ -96,5 +106,12 @@ for name, md, want in PLUS:
         if got != want:
             failed += 1
             print("FAIL {} ({}): want {} got {}".format(name, engine, want, got))
-print("{} cases, {} engines, {} failed".format(len(CASES) + len(TEXT) + len(PLUS), len(ENGINES), failed))
+for md in BOLD:
+    for engine, cmd in ENGINES.items():
+        out = raw(cmd, md)
+        props = re.findall(r"((?:\x1b\[[0-9;]*m)+)(?:\*\*)? ?([A-Z][a-z ]+:)", out)
+        if not props or any("38;5;203m" not in p or "[1m" not in p for p, _ in props):
+            failed += 1
+            print("FAIL a Property is bold red ({}): {!r}".format(engine, out))
+print("{} cases, {} engines, {} failed".format(len(CASES) + len(TEXT) + len(PLUS) + len(BOLD), len(ENGINES), failed))
 sys.exit(1 if failed else 0)

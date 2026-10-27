@@ -2,7 +2,7 @@
 
 <img src="img/hyperlist-display.svg" align="left" width="150" height="150">
 
-![Version](https://img.shields.io/badge/version-0.1.5-blue) ![Assembly](https://img.shields.io/badge/language-x86__64%20Assembly-purple) ![License](https://img.shields.io/badge/license-Unlicense-green) ![Platform](https://img.shields.io/badge/platform-Linux%20x86__64-blue) ![Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen) ![Binary](https://img.shields.io/badge/binary-~50KB-orange) ![Hook](https://img.shields.io/badge/Claude%20Code-MessageDisplay%20hook-ff6600) ![Stay Amazing](https://img.shields.io/badge/Stay-Amazing-important)
+![Version](https://img.shields.io/badge/version-0.1.6-blue) ![Assembly](https://img.shields.io/badge/language-x86__64%20Assembly-purple) ![License](https://img.shields.io/badge/license-Unlicense-green) ![Platform](https://img.shields.io/badge/platform-Linux%20x86__64-blue) ![Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen) ![Binary](https://img.shields.io/badge/binary-~50KB-orange) ![Hook](https://img.shields.io/badge/Claude%20Code-MessageDisplay%20hook-ff6600) ![Stay Amazing](https://img.shields.io/badge/Stay-Amazing-important)
 
 A Claude Code display hook that renders every answer as a
 [HyperList](https://isene.org/hyperlist/): a tab-indented hierarchy,
@@ -96,6 +96,8 @@ Symlink the first two into `~/.claude/hooks/` and the third into
 - Bold and italic survive as ANSI, since the terminal gets plain text,
   not markdown. Sentinel bytes mark them through wrapping and expand at
   the end, so they cost no display columns.
+- A Property at the start of an Item ("Pushed:") is bold red, whether
+  or not the markdown made it bold.
 - Anything the hook cannot handle makes it exit 1, and Claude Code shows
   the original text. Every error path is a jump to that exit.
 
