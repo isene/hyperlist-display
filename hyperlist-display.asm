@@ -87,6 +87,7 @@ hl_tag:       db 'hyperlist'
 hl_tag_len    equ $ - hl_tag
 colon_sp:     db ': '
 dot_sp:       db '. '
+move_str:     db 'Your move:'
 cond_open:    db '[? '
 cond_close:   db '] '
 then_str:     db 'then '
@@ -3167,7 +3168,22 @@ handle_line:
     mov rcx, r14
     call lead_cols
     call nesting_depth              ; r8 = this item's depth, for attach_list
+    ; "3. Your move: ..." is an action, never the content of the line above
+    mov rcx, [rsp]                  ; the separator after the digits
+    lea rax, [rcx + 12]             ; ". Your move:" ends here
+    cmp rax, r13
+    ja  .n_attach
+    lea rdi, [r12 + rcx + 2]
+    lea rsi, [move_str]
+    mov edx, 10
+    call memcmp_n
+    test eax, eax
+    jnz .n_attach
+    call flush_para
+    jmp .n_placed
+.n_attach:
     call attach_list
+.n_placed:
     pop rcx
     ; digits, then ". ", then the inline-transformed rest
     lea rdi, [line_buf]

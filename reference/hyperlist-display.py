@@ -799,7 +799,12 @@ def convert(md, base=0, shift=None, in_fence=0, fence_indent=0,
             # yield one HyperList level per nesting level.
             lead = len(m.group(1).expandtabs(4))
             depth = lead // 4 if lead and lead % 4 == 0 else lead // 2
-            attach_list(depth)
+            # "3. Your move: ..." is an action at the end of an answer, never
+            # the content of the line above it ("Closed: 2" or a sentence).
+            if m.group(4).startswith("Your move:"):
+                flush_para()
+            else:
+                attach_list(depth)
             # A bold wrapper reopens on the rest of the Item.
             rest = ("**" + m.group(4)) if m.group(2) else m.group(4)
             # HyperList numbered items take a period, never a colon
